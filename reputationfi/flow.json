@@ -1,26 +1,27 @@
 {
+	"contracts": {
+		"ReputationFi": "./contracts/ReputationFi.cdc"
+	},
 	"networks": {
 		"emulator": "127.0.0.1:3569",
 		"mainnet": "access.mainnet.nodes.onflow.org:9000",
 		"testnet": "access.devnet.nodes.onflow.org:9000"
 	},
 	"accounts": {
+		"augustin": {
+			"address": "01cf0e2f2f715450",
+			"key": "d5788c9c70ac35908328587733b47cdaf8d317b2a866a57a7759fea957bf277c"
+		},
 		"emulator-account": {
 			"address": "f8d6e0586b0a20c7",
-			"key": "b783619a1939874869c28f272b84a739e1c59aea2ec54301c59850fe5d64fb27"
-		}
-	},
-	"contracts": {
-		"ReputationFi": {
-			"source": "./contracts/ReputationFi.cdc",
-			"aliases": {
-				"emulator": "0xf8d6e0586b0a20c7"
-			}
+			"key": "95a0731649571380e288c65bc5771693d5e383a030d3c50d82194ddd3774003b"
 		}
 	},
 	"deployments": {
 		"emulator": {
-			"emulator-account": ["ReputationFi"]
+			"emulator-account": [
+				"ReputationFi"
+			]
 		}
 	}
 }
