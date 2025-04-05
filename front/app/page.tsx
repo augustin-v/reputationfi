@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import * as fcl from "@onflow/fcl";
 import Head from 'next/head';
 import "./src/flow/config";
+import GitHubConnect from './components/GitHubConnect';
 
 type User = {
   loggedIn: boolean;
@@ -17,6 +18,15 @@ type ReputationToken = {
   createdAt: number;
 };
 
+type GitHubStats = {
+  totalContributions: number;
+  commits: number;
+  pullRequests: number;
+  stars: number;
+  repos: number;
+  username: string;
+};
+
 export default function Home() {
   const [user, setUser] = useState<User>({ loggedIn: false });
   const [githubUsername, setGithubUsername] = useState("");
@@ -25,6 +35,8 @@ export default function Home() {
   const [stars, setStars] = useState(0);
   const [tokens, setTokens] = useState<ReputationToken[]>([]);
   const [loading, setLoading] = useState(false);
+  const [githubStats, setGithubStats] = useState<GitHubStats | null>(null);
+  const [stakedTokens, setStakedTokens] = useState<{[key: number]: boolean}>({});
 
   useEffect(() => {
     fcl.currentUser().subscribe(setUser);
@@ -35,6 +47,15 @@ export default function Home() {
       fetchTokens();
     }
   }, [user]);
+
+  // Handle GitHub stats received from the connect component
+  const handleGitHubStats = (stats: GitHubStats) => {
+    setGithubStats(stats);
+    setGithubUsername(stats.username);
+    setCommits(stats.commits);
+    setPullRequests(stats.pullRequests);
+    setStars(stats.stars);
+  };
 
   const fetchTokens = async () => {
     if (!user.addr) return;
@@ -120,26 +141,24 @@ export default function Home() {
     try {
       const transactionId = await fcl.mutate({
         cadence: `
-import ReputationFi from 0xf8d6e0586b0a20c7
+          import ReputationFi from 0xf8d6e0586b0a20c7
 
-transaction {
-  prepare(signer: AuthAccount) {
-    // Direct access to storage without the .storage member
-    if signer.borrow<&ReputationFi.ReputationVault>(from: /storage/ReputationVault) == nil {
-      let vault <- ReputationFi.createVault()
-      signer.save(<-vault, to: /storage/ReputationVault)
-      
-      // Create and link the capability (note we're using link instead of capabilities API)
-      signer.link<&ReputationFi.ReputationVault>(/public/ReputationVault, target: /storage/ReputationVault)
-      
-      log("ReputationVault created successfully")
-    } else {
-      log("ReputationVault already exists")
-    }
-  }
-}
-
-
+          transaction {
+            prepare(signer: AuthAccount) {
+              // Direct access to storage without the .storage member
+              if signer.borrow<&ReputationFi.ReputationVault>(from: /storage/ReputationVault) == nil {
+                let vault <- ReputationFi.createVault()
+                signer.save(<-vault, to: /storage/ReputationVault)
+                
+                // Create and link the capability (note we're using link instead of capabilities API)
+                signer.link<&ReputationFi.ReputationVault>(/public/ReputationVault, target: /storage/ReputationVault)
+                
+                log("ReputationVault created successfully")
+              } else {
+                log("ReputationVault already exists")
+              }
+            }
+          }
         `,
         payer: fcl.authz,
         proposer: fcl.authz,
@@ -155,6 +174,7 @@ transaction {
     }
   };
 
+
   const mintReputation = async () => {
     if (!githubUsername) {
       alert("Please enter a GitHub username");
@@ -164,32 +184,31 @@ transaction {
     try {
       const transactionId = await fcl.mutate({
         cadence: `
-import ReputationFi from 0xReputationFi
+          import ReputationFi from 0xf8d6e0586b0a20c7
 
-transaction(githubUsername: String, commits: UInt64, pullRequests: UInt64, stars: UInt64) {
-  prepare(signer: &Account) { // Removed "auth"
-    // Get a reference to the vault
-    let vaultRef = signer.storage.borrow<&ReputationFi.ReputationVault>(
-        from: /storage/ReputationVault
-    ) ?? panic("ReputationVault not found. Please create one first.")
-    
-    // Mint a new reputation token
-    let token <- ReputationFi.mintRepToken(
-        githubUsername: githubUsername,
-        commits: commits,
-        pullRequests: pullRequests,
-        stars: stars
-    )
-    
-    log("Created reputation token with score: ".concat(token.reputationScore.toString()))
-    
-    // Deposit the token into the vault
-    vaultRef.deposit(token: <-token)
-    
-    log("Token deposited successfully")
-  }
-}
-
+          transaction(githubUsername: String, commits: UInt64, pullRequests: UInt64, stars: UInt64) {
+            prepare(signer: AuthAccount) {
+              // Get a reference to the vault using older syntax
+              let vaultRef = signer.borrow<&ReputationFi.ReputationVault>(
+                  from: /storage/ReputationVault
+              ) ?? panic("ReputationVault not found. Please create one first.")
+              
+              // Mint a new reputation token
+              let token <- ReputationFi.mintRepToken(
+                  githubUsername: githubUsername,
+                  commits: commits,
+                  pullRequests: pullRequests,
+                  stars: stars
+              )
+              
+              log("Created reputation token with score: ".concat(token.reputationScore.toString()))
+              
+              // Deposit the token into the vault
+              vaultRef.deposit(token: <-token)
+              
+              log("Token deposited successfully")
+            }
+          }
         `,
         args: (arg: any, t: any) => [
           arg(githubUsername, t.String),
@@ -211,6 +230,7 @@ transaction(githubUsername: String, commits: UInt64, pullRequests: UInt64, stars
       setCommits(0);
       setPullRequests(0);
       setStars(0);
+      setGithubStats(null);
       
       // Refresh tokens
       setTimeout(fetchTokens, 5000);
@@ -218,6 +238,15 @@ transaction(githubUsername: String, commits: UInt64, pullRequests: UInt64, stars
       console.error("Error minting reputation:", error);
       alert("Error minting reputation: " + error);
     }
+  };
+
+  // Simulate token staking
+  const stakeToken = (tokenId: number) => {
+    setStakedTokens(prev => ({
+      ...prev,
+      [tokenId]: true
+    }));
+    alert(`Token #${tokenId} staked successfully! You will earn 12% APY.`);
   };
 
   return (
@@ -269,6 +298,41 @@ transaction(githubUsername: String, commits: UInt64, pullRequests: UInt64, stars
                 Convert your GitHub contributions into reputation tokens.
               </p>
               
+              {/* GitHub Connect Component */}
+              {!githubStats ? (
+                <div style={{ marginBottom: '20px' }}>
+                  <GitHubConnect onStatsReceived={handleGitHubStats} />
+                </div>
+              ) : (
+                <div className="github-verified" style={{ 
+                  marginBottom: '20px', 
+                  padding: '15px', 
+                  backgroundColor: 'rgba(46, 160, 67, 0.1)', 
+                  borderRadius: '8px',
+                  border: '1px solid rgba(46, 160, 67, 0.3)'
+                }}>
+                  <div style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    marginBottom: '10px', 
+                    fontWeight: 'bold', 
+                    color: 'var(--github-green)' 
+                  }}>
+                    <svg width="16" height="16" viewBox="0 0 16 16" style={{ marginRight: '8px' }}>
+                      <path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path>
+                    </svg>
+                    GitHub Verified
+                  </div>
+                  <p style={{ margin: '0 0 10px 0' }}>Stats fetched for <strong>{githubStats.username}</strong>:</p>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px' }}>
+                    <div>Contributions: <strong>{githubStats.totalContributions}</strong></div>
+                    <div>Commits: <strong>{githubStats.commits}</strong></div>
+                    <div>Pull Requests: <strong>{githubStats.pullRequests}</strong></div>
+                    <div>Stars: <strong>{githubStats.stars}</strong></div>
+                  </div>
+                </div>
+              )}
+              
               <div className="input-group">
                 <label htmlFor="github">GitHub Username</label>
                 <input
@@ -276,10 +340,12 @@ transaction(githubUsername: String, commits: UInt64, pullRequests: UInt64, stars
                   type="text"
                   value={githubUsername}
                   onChange={(e) => setGithubUsername(e.target.value)}
-                  placeholder="e.g., augustin-very-handsome"
+                  placeholder="e.g., octocat"
+                  disabled={!!githubStats}
                 />
               </div>
-              
+
+
               <div className="input-group">
                 <label htmlFor="commits">Commits</label>
                 <input
@@ -288,6 +354,7 @@ transaction(githubUsername: String, commits: UInt64, pullRequests: UInt64, stars
                   value={commits}
                   onChange={(e) => setCommits(parseInt(e.target.value) || 0)}
                   min="0"
+                  disabled={!!githubStats}
                 />
               </div>
               
@@ -299,6 +366,7 @@ transaction(githubUsername: String, commits: UInt64, pullRequests: UInt64, stars
                   value={pullRequests}
                   onChange={(e) => setPullRequests(parseInt(e.target.value) || 0)}
                   min="0"
+                  disabled={!!githubStats}
                 />
               </div>
               
@@ -310,6 +378,7 @@ transaction(githubUsername: String, commits: UInt64, pullRequests: UInt64, stars
                   value={stars}
                   onChange={(e) => setStars(parseInt(e.target.value) || 0)}
                   min="0"
+                  disabled={!!githubStats}
                 />
               </div>
               
@@ -356,6 +425,66 @@ transaction(githubUsername: String, commits: UInt64, pullRequests: UInt64, stars
                       <div className="reputation-score">{token.score}</div>
                     </div>
                   ))}
+                </div>
+              )}
+            </div>
+
+            {/* DeFi Feature: Staking */}
+            <div className="card">
+              <h2 style={{ marginBottom: '16px', fontSize: '1.5rem' }}>
+                Reputation Staking
+              </h2>
+              <p style={{ marginBottom: '24px', opacity: 0.8 }}>
+                Stake your reputation tokens to earn yield and demonstrate commitment to your projects.
+              </p>
+              
+              {tokens.length > 0 ? (
+                <div>
+                  {tokens.map((token) => (
+                    <div key={token.id} style={{ 
+                      display: 'flex', 
+                      justifyContent: 'space-between', 
+                      alignItems: 'center',
+                      padding: '16px',
+                      borderBottom: '1px solid var(--border)',
+                      marginBottom: '8px'
+                    }}>
+                      <div>
+                        <div style={{ fontWeight: 600, marginBottom: '4px' }}>
+                          {token.github}
+                          <span className="badge" style={{ marginLeft: '8px' }}>#{token.id}</span>
+                        </div>
+                        <div>Reputation: {token.score}</div>
+                      </div>
+                      <div>
+                        {stakedTokens[token.id] ? (
+                          <div style={{ 
+                            color: 'var(--github-green)',
+                            padding: '8px 16px',
+                            border: '1px solid var(--github-green)',
+                            borderRadius: '4px'
+                          }}>
+                            Staked (12% APY)
+                          </div>
+                        ) : (
+                          <button 
+                            onClick={() => stakeToken(token.id)}
+                            style={{
+                              backgroundColor: 'transparent',
+                              border: '1px solid var(--border)',
+                              padding: '8px 16px'
+                            }}
+                          >
+                            Stake for 12% APY
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ textAlign: 'center', padding: '20px', opacity: 0.7 }}>
+                  No tokens available for staking. Mint reputation tokens first!
                 </div>
               )}
             </div>
