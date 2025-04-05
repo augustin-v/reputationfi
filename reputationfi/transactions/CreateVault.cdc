@@ -1,4 +1,4 @@
-import ReputationFi from 0x06 
+import ReputationFi from 0xReputationFi
 
 transaction {
     prepare(signer: auth(Storage, Capabilities) &Account) {

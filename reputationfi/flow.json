@@ -1,0 +1,26 @@
+{
+	"networks": {
+		"emulator": "127.0.0.1:3569",
+		"mainnet": "access.mainnet.nodes.onflow.org:9000",
+		"testnet": "access.devnet.nodes.onflow.org:9000"
+	},
+	"accounts": {
+		"emulator-account": {
+			"address": "f8d6e0586b0a20c7",
+			"key": "b783619a1939874869c28f272b84a739e1c59aea2ec54301c59850fe5d64fb27"
+		}
+	},
+	"contracts": {
+		"ReputationFi": {
+			"source": "./contracts/ReputationFi.cdc",
+			"aliases": {
+				"emulator": "0xf8d6e0586b0a20c7"
+			}
+		}
+	},
+	"deployments": {
+		"emulator": {
+			"emulator-account": ["ReputationFi"]
+		}
+	}
+}

@@ -23,6 +23,11 @@ access(all) contract ReputationFi {
             self.totalStaked = 0
         }
         
+        // Add the destructor inside the resource definition
+        destroy() {
+            destroy self.tokens
+        }
+        
         access(all) fun deposit(token: @RepToken) {
             self.tokens[token.id] <-! token
         }
@@ -35,7 +40,6 @@ access(all) contract ReputationFi {
             
             self.totalStaked = self.totalStaked + amount
         }
-        
     }
     
     // Variables to track reputation data
@@ -73,4 +77,3 @@ access(all) contract ReputationFi {
         self.totalReputation = 0
     }
 }
-
