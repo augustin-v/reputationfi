@@ -1,4 +1,3 @@
-// app/page.tsx
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -31,10 +30,6 @@ type GitHubStats = {
 
 export default function Home() {
   const [user, setUser] = useState<User>({ loggedIn: false });
-  const [githubUsername, setGithubUsername] = useState("");
-  const [commits, setCommits] = useState(0);
-  const [pullRequests, setPullRequests] = useState(0);
-  const [stars, setStars] = useState(0);
   const [tokens, setTokens] = useState<ReputationToken[]>([]);
   const [loading, setLoading] = useState(false);
   const [githubStats, setGithubStats] = useState<GitHubStats | null>(null);
@@ -63,10 +58,6 @@ export default function Home() {
   // Handle GitHub stats received from the connect component
   const handleGitHubStats = (stats: GitHubStats) => {
     setGithubStats(stats);
-    setGithubUsername(stats.username);
-    setCommits(stats.commits);
-    setPullRequests(stats.pullRequests);
-    setStars(stats.stars);
     console.log("GitHub stats received:", stats);
   };
 
@@ -142,6 +133,7 @@ export default function Home() {
       if (process.env.NODE_ENV !== 'production') {
         setTokens([
           { id: 1, github: "demo-user", score: 1250, createdAt: Math.floor(Date.now()/1000) - 86400 },
+          { id: 2, github: "flow-dev", score: 3420, createdAt: Math.floor(Date.now()/1000) - 43200 }
         ]);
       }
     } finally {
@@ -187,20 +179,14 @@ export default function Home() {
   };
 
   const mintReputation = async () => {
-    if (!githubUsername) {
-      alert("Please enter a GitHub username");
-      return;
-    }
-    
-    // Enforce that users can only mint tokens for their verified GitHub account
-    if (githubStats && githubStats.username !== githubUsername) {
-      alert("You can only mint reputation tokens for your own GitHub account that you've verified.");
+    if (!githubStats) {
+      alert("Please connect your GitHub account first");
       return;
     }
     
     try {
       // First check if a token for this GitHub username already exists
-      const existingToken = tokens.find(token => token.github === githubUsername);
+      const existingToken = tokens.find(token => token.github === githubStats.username);
       
       // If a token exists, update it instead of creating a new one
       const transactionId = await fcl.mutate({
@@ -262,10 +248,10 @@ export default function Home() {
           }
         `,
         args: (arg: any, t: any) => [
-          arg(githubUsername, t.String),
-          arg(commits.toString(), t.UInt64),
-          arg(pullRequests.toString(), t.UInt64),
-          arg(stars.toString(), t.UInt64)
+          arg(githubStats.username, t.String),
+          arg(githubStats.commits.toString(), t.UInt64),
+          arg(githubStats.pullRequests.toString(), t.UInt64),
+          arg(githubStats.stars.toString(), t.UInt64)
         ],
         payer: fcl.authz,
         proposer: fcl.authz,
@@ -281,11 +267,7 @@ export default function Home() {
         alert("Reputation minted! Transaction ID: " + transactionId);
       }
       
-      // Reset form
-      setGithubUsername("");
-      setCommits(0);
-      setPullRequests(0);
-      setStars(0);
+      // Reset GitHub stats
       setGithubStats(null);
       
       // Refresh tokens
@@ -351,10 +333,10 @@ export default function Home() {
                 Mint Reputation
               </h2>
               <p style={{ marginBottom: '24px', opacity: 0.8 }}>
-                Convert your GitHub contributions into reputation tokens.
+                Connect your GitHub account to mint a verified reputation token.
               </p>
               
-              {/* GitHub Connect Component */}
+              {/* GitHub Connect Component - Only Option */}
               {!githubStats ? (
                 <div style={{ marginBottom: '20px' }}>
                   <GitHubConnect onStatsReceived={handleGitHubStats} />
@@ -377,69 +359,44 @@ export default function Home() {
                     <svg width="16" height="16" viewBox="0 0 16 16" style={{ marginRight: '8px' }}>
                       <path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path>
                     </svg>
-                    GitHub Verified
+                    GitHub Verified Stats
                   </div>
-                  <p style={{ margin: '0 0 10px 0' }}>Stats fetched for <strong>{githubStats.username}</strong>:</p>
+                  <p style={{ margin: '0 0 10px 0' }}>Stats from <strong>{githubStats.username}</strong> will be used to mint your reputation token:</p>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px' }}>
                     <div>Contributions: <strong>{githubStats.totalContributions}</strong></div>
                     <div>Commits: <strong>{githubStats.commits}</strong></div>
                     <div>Pull Requests: <strong>{githubStats.pullRequests}</strong></div>
                     <div>Stars: <strong>{githubStats.stars}</strong></div>
                   </div>
+                  
+                  <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
+                    <button 
+                      onClick={mintReputation}
+                      style={{ flex: '1' }}
+                    >
+                      Mint Verified Reputation
+                    </button>
+                    
+                    <button 
+                      onClick={() => setGithubStats(null)} 
+                      style={{ 
+                        backgroundColor: 'transparent',
+                        border: '1px solid var(--border)',
+                        padding: '4px 12px',
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
                 </div>
               )}
               
-              <div className="input-group">
-                <label htmlFor="github">GitHub Username</label>
-                <input
-                  id="github"
-                  type="text"
-                  value={githubUsername}
-                  onChange={(e) => setGithubUsername(e.target.value)}
-                  placeholder="e.g., octocat"
-                  disabled={!!githubStats}
-                />
-              </div>
-
-
-              <div className="input-group">
-                <label htmlFor="commits">Commits</label>
-                <input
-                  id="commits"
-                  type="number"
-                  value={commits}
-                  onChange={(e) => setCommits(parseInt(e.target.value) || 0)}
-                  min="0"
-                  disabled={!!githubStats}
-                />
-              </div>
-              
-              <div className="input-group">
-                <label htmlFor="prs">Pull Requests</label>
-                <input
-                  id="prs"
-                  type="number"
-                  value={pullRequests}
-                  onChange={(e) => setPullRequests(parseInt(e.target.value) || 0)}
-                  min="0"
-                  disabled={!!githubStats}
-                />
-              </div>
-              
-              <div className="input-group">
-                <label htmlFor="stars">Repository Stars</label>
-                <input
-                  id="stars"
-                  type="number"
-                  value={stars}
-                  onChange={(e) => setStars(parseInt(e.target.value) || 0)}
-                  min="0"
-                  disabled={!!githubStats}
-                />
-              </div>
-              
-              <div style={{ marginTop: '16px' }}>
-                <button onClick={mintReputation}>Mint Reputation</button>
+              {/* Explanation why we only use verified data */}
+              <div style={{ marginTop: '20px', padding: '12px', backgroundColor: 'rgba(0,0,0,0.03)', borderRadius: '4px' }}>
+                <h4 style={{ margin: '0 0 8px 0', fontSize: '1rem' }}>Why Verification Matters</h4>
+                <p style={{ margin: '0', fontSize: '0.9rem', opacity: 0.8 }}>
+                  ReputationFi only uses verified GitHub statistics to ensure the integrity of reputation scores. This verification ensures that reputation tokens represent actual developer contributions, making them valuable for credit eligibility and DeFi activities.
+                </p>
               </div>
             </div>
 
