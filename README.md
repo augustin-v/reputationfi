@@ -92,8 +92,4 @@ Our implementation leverages several Cadence-specific advantages:
 
 ## Team
 
-- **Augustin Villetard** - blockchain developer with experience in DeFi protocols. 
-  - GitHub: [@augustin](https://github.com/augustin)
-  - Twitter: [@augustinv_dev](https://twitter.com/augustinv_dev)
-
-
+- me(augustin-v) and my gigantic brain
