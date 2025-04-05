@@ -1,7 +1,7 @@
-import ReputationFi from 0xReputationFi
+import ReputationFi from 0xf8d6e0586b0a20c7
 
 transaction {
-    prepare(signer: auth(Storage, Capabilities) &Account) {
+    prepare(signer: AuthAccount) {
         if signer.storage.borrow<auth(Storage) &ReputationFi.ReputationVault>(from: /storage/ReputationVault) == nil {
             let vault <- ReputationFi.createVault()
             signer.storage.save(<-vault, to: /storage/ReputationVault)
@@ -16,4 +16,3 @@ transaction {
         }
     }
 }
-

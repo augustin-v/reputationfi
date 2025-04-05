@@ -1,4 +1,4 @@
-import ReputationFi from 0xReputationFi
+import ReputationFi from 0xf8d6e0586b0a20c7
 
 transaction(tokenID: UInt64, amount: UInt64) {
     prepare(signer: auth(Storage) &Account) {

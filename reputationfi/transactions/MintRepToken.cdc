@@ -1,5 +1,5 @@
 
-import ReputationFi from 0xReputationFi
+import ReputationFi from 0xf8d6e0586b0a20c7
 
 
 transaction(githubUsername: String, commits: UInt64, pullRequests: UInt64, stars: UInt64) {
