@@ -43,31 +43,33 @@ export default function Home() {
       setLoading(true);
       const result = await fcl.query({
         cadence: `
-          import ReputationFi from 0x06
+import ReputationFi from 0xReputationFi
 
-          access(all) fun main(address: Address): {UInt64: {String: AnyStruct}} {
-            let account = getAccount(address)
-            
-            let vaultCap = account.capabilities.get<&ReputationFi.ReputationVault>(
-                /public/ReputationVault
-            )
-            
-            let vault = vaultCap.borrow() ?? panic("ReputationVault not found for this address")
-            
-            let results: {UInt64: {String: AnyStruct}} = {}
-            
-            for id in vault.tokens.keys {
-              if let token = vault.tokens[id] {
-                results[id] = {
-                  "github": token.githubUsername,
-                  "score": token.reputationScore,
-                  "createdAt": token.createdAt
-                }
-              }
-            }
-            
-            return results
-          }
+pub fun main(address: Address): {UInt64: {String: AnyStruct}} {
+  let account = getAccount(address)
+  
+  // Simplify the capability borrowing - use the actual resource type
+  let vault = account.getCapability<&ReputationFi.ReputationVault>(/public/ReputationVault)
+      .borrow()
+      ?? panic("ReputationVault not found for this address")
+  
+  let results: {UInt64: {String: AnyStruct}} = {}
+  
+  for id in vault.tokens.keys {
+    // Reference the token directly
+    if let tokenRef = &vault.tokens[id] as &ReputationFi.RepToken? {
+      results[id] = {
+        "github": tokenRef.githubUsername,
+        "score": tokenRef.reputationScore,
+        "createdAt": tokenRef.createdAt
+      }
+    }
+  }
+  
+  return results
+}
+
+
         `,
         args: (arg: any, t: any) => [arg(user.addr, t.Address)]
       });
@@ -94,24 +96,26 @@ export default function Home() {
     try {
       const transactionId = await fcl.mutate({
         cadence: `
-          import ReputationFi from 0x06 
+import ReputationFi from 0xf8d6e0586b0a20c7
 
-          transaction {
-            prepare(signer: auth(Storage, Capabilities) &Account) {
-              if signer.storage.borrow<auth(Storage) &ReputationFi.ReputationVault>(from: /storage/ReputationVault) == nil {
-                let vault <- ReputationFi.createVault()
-                signer.storage.save(<-vault, to: /storage/ReputationVault)
-                
-                let capability = signer.capabilities.storage.issue<&ReputationFi.ReputationVault>(/storage/ReputationVault)
-                
-                signer.capabilities.publish(capability, at: /public/ReputationVault)
-                
-                log("ReputationVault created successfully")
-              } else {
-                log("ReputationVault already exists")
-              }
-            }
-          }
+transaction {
+  prepare(signer: AuthAccount) {
+    // Direct access to storage without the .storage member
+    if signer.borrow<&ReputationFi.ReputationVault>(from: /storage/ReputationVault) == nil {
+      let vault <- ReputationFi.createVault()
+      signer.save(<-vault, to: /storage/ReputationVault)
+      
+      // Create and link the capability (note we're using link instead of capabilities API)
+      signer.link<&ReputationFi.ReputationVault>(/public/ReputationVault, target: /storage/ReputationVault)
+      
+      log("ReputationVault created successfully")
+    } else {
+      log("ReputationVault already exists")
+    }
+  }
+}
+
+
         `,
         payer: fcl.authz,
         proposer: fcl.authz,
@@ -136,31 +140,32 @@ export default function Home() {
     try {
       const transactionId = await fcl.mutate({
         cadence: `
-          import ReputationFi from 0x06
+import ReputationFi from 0xReputationFi
 
-          transaction(githubUsername: String, commits: UInt64, pullRequests: UInt64, stars: UInt64) {
-            prepare(signer: auth(Storage) &Account) {
-              // Get a reference to the vault
-              let vaultRef = signer.storage.borrow<auth(Storage) &ReputationFi.ReputationVault>(
-                  from: /storage/ReputationVault
-              ) ?? panic("ReputationVault not found. Please create one first.")
-              
-              // Mint a new reputation token
-              let token <- ReputationFi.mintRepToken(
-                  githubUsername: githubUsername,
-                  commits: commits,
-                  pullRequests: pullRequests,
-                  stars: stars
-              )
-              
-              log("Created reputation token with score: ".concat(token.reputationScore.toString()))
-              
-              // Deposit the token into the vault
-              vaultRef.deposit(token: <-token)
-              
-              log("Token deposited successfully")
-            }
-          }
+transaction(githubUsername: String, commits: UInt64, pullRequests: UInt64, stars: UInt64) {
+  prepare(signer: &Account) { // Removed "auth"
+    // Get a reference to the vault
+    let vaultRef = signer.storage.borrow<&ReputationFi.ReputationVault>(
+        from: /storage/ReputationVault
+    ) ?? panic("ReputationVault not found. Please create one first.")
+    
+    // Mint a new reputation token
+    let token <- ReputationFi.mintRepToken(
+        githubUsername: githubUsername,
+        commits: commits,
+        pullRequests: pullRequests,
+        stars: stars
+    )
+    
+    log("Created reputation token with score: ".concat(token.reputationScore.toString()))
+    
+    // Deposit the token into the vault
+    vaultRef.deposit(token: <-token)
+    
+    log("Token deposited successfully")
+  }
+}
+
         `,
         args: (arg: any, t: any) => [
           arg(githubUsername, t.String),
@@ -247,7 +252,7 @@ export default function Home() {
                   type="text"
                   value={githubUsername}
                   onChange={(e) => setGithubUsername(e.target.value)}
-                  placeholder="e.g., octocat"
+                  placeholder="e.g., augustin-very-handsome"
                 />
               </div>
               
