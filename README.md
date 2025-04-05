@@ -74,13 +74,28 @@ Our implementation leverages several Cadence-specific advantages:
 
 ## Getting Started
 
+### First steps
+
 1. Clone the repository
-2. Install dependencies: `pnpm install`
-3. Run the development server: `pnpm run dev`
-4. Connect Flow wallet
-5. Link GitHub account to verify your contributions
-6. Create a vault and mint your reputation token
-7. Explore DeFi features like staking and borrowing
+2. Install the flow CLI 
+```bash
+ sh -ci "$(curl -fsSL https://storage.googleapis.com/flow-cli/install.sh)"
+```
+3. Terminal 1: 
+```bash
+cd reputationfi
+flow emulator
+```
+Once its running, open a second terminal and (make sure you are in the same folder as terminal 1):
+```bash
+flow project deploy
+```
+
+### Second steps
+
+1. Install dependenciesin the `front` folder: `pnpm install`
+2. Run the development server: `pnpm run dev`
+3. Connect Flow wallet to the website
 
 ## Future Roadmap
 
