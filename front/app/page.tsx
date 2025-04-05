@@ -6,6 +6,7 @@ import * as fcl from "@onflow/fcl";
 import Head from 'next/head';
 import "./src/flow/config";
 import GitHubConnect from './components/GitHubConnect';
+import CreditCard from './components/CreditCard';
 
 type User = {
   loggedIn: boolean;
@@ -140,8 +141,7 @@ export default function Home() {
       // Fallback to demo data if we can't fetch real tokens
       if (process.env.NODE_ENV !== 'production') {
         setTokens([
-          { id: 1, github: "coolguy1", score: 1250, createdAt: Math.floor(Date.now()/1000) - 86400 },
-          { id: 2, github: "dirtgolem", score: 3420, createdAt: Math.floor(Date.now()/1000) - 43200 }
+          { id: 1, github: "demo-user", score: 1250, createdAt: Math.floor(Date.now()/1000) - 86400 },
         ]);
       }
     } finally {
@@ -186,7 +186,6 @@ export default function Home() {
     }
   };
 
-
   const mintReputation = async () => {
     if (!githubUsername) {
       alert("Please enter a GitHub username");
@@ -207,7 +206,7 @@ export default function Home() {
       const transactionId = await fcl.mutate({
         cadence: `
           import ReputationFi from 0xf8d6e0586b0a20c7
-  
+
           transaction(githubUsername: String, commits: UInt64, pullRequests: UInt64, stars: UInt64) {
             prepare(signer: AuthAccount) {
               // Get a reference to the vault
@@ -335,7 +334,7 @@ export default function Home() {
           )}
         </header>
 
-{user.loggedIn ? (
+        {user.loggedIn ? (
           <div>
             <div className="card">
               <h2 style={{ marginBottom: '16px', fontSize: '1.5rem' }}>
@@ -486,6 +485,8 @@ export default function Home() {
               )}
             </div>
 
+            {/* Add the new Credit Card component */}
+            <CreditCard tokens={tokens} />
 
             {/* DeFi Feature: Staking */}
             <div className="card">
